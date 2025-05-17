@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Home, Share, ArrowLeft, Printer } from 'lucide-react';
+import { Home, Printer } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import ShareOptions from '../components/ShareOptions';
 import { printImage } from '../utils/printer';
@@ -12,17 +12,15 @@ const ShareScreen: React.FC = () => {
   useEffect(() => {
     const startPrinting = async () => {
       if (!activePhoto || !printer) {
-        navigate('/capture');
+        navigate('/');
         return;
       }
 
       try {
         const success = await printImage(activePhoto.src, printer);
-        if (success) {
-          // After successful print, navigate back to capture for next photo if needed
-          setTimeout(() => {
-            navigate('/capture');
-          }, 2000);
+        if (!success) {
+          console.error('Print failed');
+          // Could show an error message here
         }
       } catch (error) {
         console.error('Print error:', error);
@@ -34,7 +32,7 @@ const ShareScreen: React.FC = () => {
   }, [activePhoto, printer, navigate]);
   
   if (!activePhoto || !printer) {
-    navigate('/capture');
+    navigate('/');
     return null;
   }
   

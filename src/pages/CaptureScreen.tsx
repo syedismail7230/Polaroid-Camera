@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Camera } from 'lucide-react';
 import PhotoCapture from '../components/PhotoCapture';
 import PhotoEditor from '../components/PhotoEditor';
@@ -7,16 +7,20 @@ import { useAppContext } from '../context/AppContext';
 import { v4 as uuidv4 } from 'uuid';
 
 const CaptureScreen: React.FC = () => {
-  const location = useLocation();
-  const { photoCount = 1 } = location.state || {};
-  const [remainingPhotos, setRemainingPhotos] = useState(photoCount);
-  const [capturedPhotos, setCapturedPhotos] = useState<string[]>([]);
   const [step, setStep] = useState<'capture' | 'edit'>('capture');
-  const { addPhoto, setActivePhoto, venue } = useAppContext();
+  const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null);
+  const { addPhoto, setActivePhoto, venue, printer } = useAppContext();
   const navigate = useNavigate();
   
+  // Redirect to payment if no printer is connected
+  useEffect(() => {
+    if (!printer) {
+      navigate('/');
+    }
+  }, [printer, navigate]);
+  
   const handlePhotoCapture = (photoData: string) => {
-    setCapturedPhotos(prev => [...prev, photoData]);
+    setCapturedPhoto(photoData);
     setStep('edit');
   };
   
@@ -37,14 +41,11 @@ const CaptureScreen: React.FC = () => {
     
     addPhoto(newPhoto);
     setActivePhoto(newPhoto);
-    setRemainingPhotos(prev => prev - 1);
-
-    // Always navigate to share screen for printing
-    navigate('/share');
+    navigate('/share'); // Go directly to share/print screen
   };
   
   const handleEditCancel = () => {
-    setCapturedPhotos(prev => prev.slice(0, -1));
+    setCapturedPhoto(null);
     setStep('capture');
   };
   
@@ -59,18 +60,16 @@ const CaptureScreen: React.FC = () => {
           />
         )}
         <h1 className="text-2xl font-bold" style={{ color: venue.primaryColor }}>
-          {step === 'capture' 
-            ? `Take Photo ${photoCount - remainingPhotos + 1} of ${photoCount}` 
-            : 'Edit Your Photo'}
+          {step === 'capture' ? 'Take Your Photo' : 'Edit Your Photo'}
         </h1>
       </div>
       
       <div className="max-w-md mx-auto mb-8">
         {step === 'capture' ? (
           <PhotoCapture onCapture={handlePhotoCapture} />
-        ) : capturedPhotos.length > 0 && (
+        ) : capturedPhoto && (
           <PhotoEditor 
-            photoSrc={capturedPhotos[capturedPhotos.length - 1]}
+            photoSrc={capturedPhoto}
             onSave={handleEditComplete}
             onCancel={handleEditCancel}
           />
