@@ -79,7 +79,10 @@ const PrinterConnection: React.FC<PrinterConnectionProps> = ({ onConnect }) => {
         prev.map(d => d.id === device.id ? connectedDevice : d)
       );
       
-      onConnect(connectedDevice);
+      // Show success message before calling onConnect
+      setTimeout(() => {
+        onConnect(connectedDevice);
+      }, 1000); // Give time to show the success state
     } catch (error) {
       console.error('Connection error:', error);
       setError('Failed to connect to printer');
@@ -96,7 +99,7 @@ const PrinterConnection: React.FC<PrinterConnectionProps> = ({ onConnect }) => {
       <div className="bg-white p-6 rounded-lg shadow-md">
         <div className="flex justify-between items-center mb-6">
           <div className="flex items-center">
-            <h2 className="text-xl font-semibold">Available Printers</h2>
+            <h2 className="text-xl font-semibold">Connect Your Printer</h2>
           </div>
           <button 
             onClick={scanForDevices}
@@ -104,7 +107,7 @@ const PrinterConnection: React.FC<PrinterConnectionProps> = ({ onConnect }) => {
             className="text-blue-500 hover:text-blue-700 flex items-center text-sm"
           >
             <RefreshCw className={`h-4 w-4 mr-1 ${isScanning ? 'animate-spin' : ''}`} />
-            {isScanning ? 'Scanning...' : 'Scan for Printers'}
+            {isScanning ? 'Scanning...' : 'Scan'}
           </button>
         </div>
 
@@ -132,7 +135,7 @@ const PrinterConnection: React.FC<PrinterConnectionProps> = ({ onConnect }) => {
                 <button
                   onClick={() => connectToDevice(device)}
                   disabled={device.status !== 'disconnected' || !!connectingDevice}
-                  className={`px-3 py-1 rounded-full text-sm font-medium ${
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                     device.status === 'connected'
                       ? 'bg-green-100 text-green-700'
                       : device.status === 'connecting'
@@ -157,11 +160,12 @@ const PrinterConnection: React.FC<PrinterConnectionProps> = ({ onConnect }) => {
               <>
                 <WifiOff className="h-10 w-10 mb-2" />
                 <p>No printers found</p>
+                <p className="text-sm text-gray-400 mt-2">Connect a printer and click Scan</p>
                 <button 
                   onClick={scanForDevices}
-                  className="mt-3 text-blue-500 hover:text-blue-700 text-sm"
+                  className="mt-4 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
                 >
-                  Try again
+                  Scan for Printers
                 </button>
               </>
             )}
