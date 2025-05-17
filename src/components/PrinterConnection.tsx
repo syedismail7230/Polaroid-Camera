@@ -30,6 +30,7 @@ const PrinterConnection: React.FC<PrinterConnectionProps> = ({ onConnect, autoCo
         ]
       });
 
+      // Only proceed if a device was selected
       if (device) {
         const printerDevice: PrinterDevice = {
           id: device.deviceId.toString(),
@@ -40,12 +41,20 @@ const PrinterConnection: React.FC<PrinterConnectionProps> = ({ onConnect, autoCo
         
         return [printerDevice];
       }
+      
+      return [];
     } catch (error) {
+      // Check if the error is due to user cancellation
+      if ((error as Error).name === 'NotFoundError' || 
+          (error as Error).message.includes('No device selected')) {
+        // User cancelled the selection - return empty array without setting error
+        return [];
+      }
+      
       console.error('Error scanning USB devices:', error);
       setError('Failed to access USB device. Please try again.');
+      return [];
     }
-    
-    return [];
   };
 
   const scanForDevices = async () => {
