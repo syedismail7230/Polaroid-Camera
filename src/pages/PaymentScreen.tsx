@@ -16,7 +16,7 @@ const PaymentScreen: React.FC = () => {
   
   const handlePaymentComplete = (success: boolean) => {
     if (success) {
-      navigate('/', { 
+      navigate('/capture', { 
         state: { photoCount: selectedPackage.count } 
       });
     }
@@ -25,14 +25,6 @@ const PaymentScreen: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-100 py-8 px-4">
       <div className="max-w-md mx-auto mb-8">
-        <button 
-          onClick={() => navigate(-1)}
-          className="flex items-center text-gray-600 hover:text-gray-800 mb-4"
-        >
-          <ArrowLeft className="h-4 w-4 mr-1" />
-          Back
-        </button>
-        
         <div className="text-center mb-8">
           <h1 className="text-2xl font-bold" style={{ color: venue.primaryColor }}>
             {selectedPackage ? 'Complete Payment' : 'Choose Your Package'}
