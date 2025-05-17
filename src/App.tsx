@@ -40,11 +40,10 @@ function App() {
         <Routes>
           {isKioskMode ? (
             <>
-              <Route path="/" element={<Navigate to="/payment" replace />} />
-              <Route path="/payment" element={<PaymentScreen />} />
+              <Route path="/" element={<PaymentScreen />} />
               <Route path="/capture" element={<CaptureScreen />} />
               <Route path="/share" element={<ShareScreen />} />
-              <Route path="*" element={<Navigate to="/payment" replace />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
             </>
           ) : (
             <>

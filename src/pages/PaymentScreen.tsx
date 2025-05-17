@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Camera, Package } from 'lucide-react';
+import { Camera, Package } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import PaymentProcess from '../components/PaymentProcess';
 import PrinterConnection from '../components/PrinterConnection';
@@ -28,9 +28,20 @@ const packages: PhotoPackage[] = [
 ];
 
 const PaymentScreen: React.FC = () => {
+  const [step, setStep] = useState<'printer' | 'package' | 'payment'>('printer');
   const [selectedPackage, setSelectedPackage] = useState<PhotoPackage | null>(null);
-  const { venue, printer } = useAppContext();
+  const { venue, printer, connectPrinter } = useAppContext();
   const navigate = useNavigate();
+
+  const handlePrinterConnect = (device: any) => {
+    connectPrinter(device);
+    setStep('package');
+  };
+  
+  const handlePackageSelect = (pkg: PhotoPackage) => {
+    setSelectedPackage(pkg);
+    setStep('payment');
+  };
   
   const handlePaymentComplete = (success: boolean) => {
     if (success && selectedPackage) {
@@ -39,32 +50,36 @@ const PaymentScreen: React.FC = () => {
       });
     }
   };
-  
+
   return (
     <div className="min-h-screen bg-gray-100 py-8 px-4">
       <div className="max-w-md mx-auto mb-8">
         <div className="text-center mb-8">
+          {venue.logo && (
+            <img 
+              src={venue.logo} 
+              alt={venue.name} 
+              className="h-12 mx-auto mb-4"
+            />
+          )}
           <h1 className="text-2xl font-bold" style={{ color: venue.primaryColor }}>
-            {!printer ? 'Connect Printer' : selectedPackage ? 'Complete Payment' : 'Choose Your Package'}
+            {step === 'printer' && 'Connect Printer'}
+            {step === 'package' && 'Choose Your Package'}
+            {step === 'payment' && 'Complete Payment'}
           </h1>
         </div>
-        
-        {!printer ? (
-          <PrinterConnection onConnect={() => setSelectedPackage(null)} />
-        ) : selectedPackage ? (
-          <PaymentProcess 
-            price={selectedPackage.price}
-            onComplete={handlePaymentComplete}
-          />
-        ) : (
+
+        {step === 'printer' && (
+          <PrinterConnection onConnect={handlePrinterConnect} />
+        )}
+
+        {step === 'package' && (
           <div className="bg-white p-6 rounded-lg shadow-md">
-            <h2 className="text-xl font-semibold mb-6">Select Your Package</h2>
-            
             <div className="space-y-4">
               {packages.map((pkg) => (
                 <button
                   key={pkg.id}
-                  onClick={() => setSelectedPackage(pkg)}
+                  onClick={() => handlePackageSelect(pkg)}
                   className="w-full p-4 border-2 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all duration-300 group"
                 >
                   <div className="flex justify-between items-center">
@@ -89,6 +104,13 @@ const PaymentScreen: React.FC = () => {
               ))}
             </div>
           </div>
+        )}
+
+        {step === 'payment' && selectedPackage && (
+          <PaymentProcess 
+            price={selectedPackage.price}
+            onComplete={handlePaymentComplete}
+          />
         )}
       </div>
     </div>
