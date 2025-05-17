@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plug, RefreshCw, WifiOff } from 'lucide-react';
+import { Plug, RefreshCw, WifiOff, ArrowRight } from 'lucide-react';
 import { PrinterDevice } from '../types';
 
 interface PrinterConnectionProps {
@@ -11,6 +11,7 @@ const PrinterConnection: React.FC<PrinterConnectionProps> = ({ onConnect }) => {
   const [devices, setDevices] = useState<PrinterDevice[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [connectingDevice, setConnectingDevice] = useState<string | null>(null);
+  const [connectedDevice, setConnectedDevice] = useState<PrinterDevice | null>(null);
 
   const scanForUSBPrinters = async () => {
     if (!('usb' in navigator)) {
@@ -84,13 +85,12 @@ const PrinterConnection: React.FC<PrinterConnectionProps> = ({ onConnect }) => {
       // Simulate connection process
       await new Promise(resolve => setTimeout(resolve, 1500));
       
-      const connectedDevice = { ...device, status: 'connected' };
+      const connected = { ...device, status: 'connected' as const };
       setDevices(prev => 
-        prev.map(d => d.id === device.id ? connectedDevice : d)
+        prev.map(d => d.id === device.id ? connected : d)
       );
       
-      // Notify parent of successful connection
-      onConnect(connectedDevice);
+      setConnectedDevice(connected);
     } catch (error) {
       console.error('Connection error:', error);
       setError('Failed to connect to printer');
@@ -99,6 +99,12 @@ const PrinterConnection: React.FC<PrinterConnectionProps> = ({ onConnect }) => {
       );
     } finally {
       setConnectingDevice(null);
+    }
+  };
+
+  const handleNext = () => {
+    if (connectedDevice) {
+      onConnect(connectedDevice);
     }
   };
 
@@ -156,6 +162,16 @@ const PrinterConnection: React.FC<PrinterConnectionProps> = ({ onConnect }) => {
                 </button>
               </div>
             ))}
+
+            {connectedDevice && (
+              <button
+                onClick={handleNext}
+                className="w-full mt-6 bg-green-500 hover:bg-green-600 text-white py-3 px-6 rounded-lg font-medium flex items-center justify-center transition-all"
+              >
+                Continue to Select Package
+                <ArrowRight className="ml-2 h-5 w-5" />
+              </button>
+            )}
           </div>
         ) : (
           <div className="py-8 flex flex-col items-center text-gray-500">
