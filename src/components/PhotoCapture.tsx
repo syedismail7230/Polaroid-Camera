@@ -34,6 +34,8 @@ const PhotoCapture: React.FC<PhotoCaptureProps> = ({ onCapture }) => {
         videoRef.current.onloadedmetadata = () => {
           videoRef.current?.play();
           setIsCapturing(true);
+          // Auto start countdown after camera is ready
+          startCountdown();
         };
       }
     } catch (err) {
@@ -92,6 +94,7 @@ const PhotoCapture: React.FC<PhotoCaptureProps> = ({ onCapture }) => {
       stopCamera();
       setCountdown(null);
       
+      // Pass the captured image to parent after a brief delay
       setTimeout(() => {
         onCapture(imageData);
       }, 1500);
@@ -111,7 +114,9 @@ const PhotoCapture: React.FC<PhotoCaptureProps> = ({ onCapture }) => {
     }
   };
 
+  // Start camera automatically when component mounts
   useEffect(() => {
+    startCamera();
     return () => {
       stopCamera();
     };
@@ -132,32 +137,6 @@ const PhotoCapture: React.FC<PhotoCaptureProps> = ({ onCapture }) => {
           </div>
         ) : (
           <>
-            {!isCapturing && !capturedImage && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center text-white">
-                <p className="text-lg mb-6">Choose how to take your photo</p>
-                <div className="flex space-x-4">
-                  <button 
-                    onClick={startCamera}
-                    className="bg-blue-500 hover:bg-blue-600 text-white font-medium py-3 px-6 rounded-lg flex items-center transition-all"
-                  >
-                    <Camera className="mr-2 h-5 w-5" />
-                    Use Camera
-                  </button>
-                  
-                  <label className="bg-pink-500 hover:bg-pink-600 text-white font-medium py-3 px-6 rounded-lg flex items-center cursor-pointer transition-all">
-                    <Image className="mr-2 h-5 w-5" />
-                    Upload Photo
-                    <input 
-                      type="file" 
-                      accept="image/*" 
-                      onChange={handleFileSelect} 
-                      className="hidden" 
-                    />
-                  </label>
-                </div>
-              </div>
-            )}
-            
             <video 
               ref={videoRef} 
               autoPlay 
@@ -182,6 +161,13 @@ const PhotoCapture: React.FC<PhotoCaptureProps> = ({ onCapture }) => {
                 alt="Captured" 
                 className="absolute inset-0 w-full h-full object-cover"
               />
+            )}
+            
+            {!isCapturing && !capturedImage && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center text-white">
+                <p className="text-lg mb-4">Starting camera...</p>
+                <div className="animate-spin rounded-full h-8 w-8 border-2 border-white"></div>
+              </div>
             )}
           </>
         )}
