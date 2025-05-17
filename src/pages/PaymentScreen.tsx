@@ -109,7 +109,6 @@ const PaymentScreen: React.FC = () => {
         {step === 'payment' && selectedPackage && (
           <PaymentProcess 
             price={selectedPackage.price}
-            venueId={venue.id}
             onComplete={handlePaymentComplete}
           />
         )}
