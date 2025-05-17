@@ -11,150 +11,115 @@ const PrinterConnection: React.FC<PrinterConnectionProps> = ({ onConnect, autoCo
   const [isScanning, setIsScanning] = useState(false);
   const [devices, setDevices] = useState<PrinterDevice[]>([]);
   const [lastScanTime, setLastScanTime] = useState(0);
-  const [autoScanEnabled, setAutoScanEnabled] = useState(true);
-  
+  const [error, setError] = useState<string | null>(null);
+
+  const scanForUSBPrinters = async () => {
+    if (!('usb' in navigator)) {
+      setError('USB support not available in this browser');
+      return [];
+    }
+
+    try {
+      const usb = (navigator as any).usb;
+      
+      // Request access to USB devices with printer interface
+      const device = await usb.requestDevice({
+        filters: [
+          { classCode: 7 }, // Printer class
+          { classCode: 0xFF } // Vendor specific class (some printers use this)
+        ]
+      });
+
+      if (device) {
+        const printerDevice: PrinterDevice = {
+          id: device.deviceId.toString(),
+          name: device.productName || 'USB Printer',
+          type: 'usb',
+          status: 'disconnected'
+        };
+        
+        return [printerDevice];
+      }
+    } catch (error) {
+      console.error('Error scanning USB devices:', error);
+      setError('Failed to access USB device. Please try again.');
+    }
+    
+    return [];
+  };
+
   const scanForDevices = async () => {
     if (isScanning) return;
     
     setIsScanning(true);
+    setError(null);
     setDevices([]);
-    
+
     try {
-      // Try to discover Bluetooth printers
-      if ('bluetooth' in navigator) {
-        const bluetooth = (navigator as any).bluetooth;
-        const device = await bluetooth.requestDevice({
-          filters: [
-            { services: ['00001812-0000-1000-8000-00805f9b34fb'] }, // Printer service UUID
-            { services: ['0000180f-0000-1000-8000-00805f9b34fb'] }  // Battery service UUID
-          ]
-        });
-        
-        if (device) {
-          const newDevice: PrinterDevice = {
-            id: device.id,
-            name: device.name || 'Bluetooth Printer',
-            type: 'bluetooth',
-            status: 'disconnected'
-          };
-          setDevices(prev => [...prev, newDevice]);
-        }
-      }
+      // Scan for USB printers
+      const usbPrinters = await scanForUSBPrinters();
+      setDevices(prev => [...prev, ...usbPrinters]);
       
-      // Try to discover USB printers
-      if ('usb' in navigator) {
-        const usb = (navigator as any).usb;
-        const devices = await usb.getDevices();
-        
-        const printerDevices = devices
-          .filter((d: any) => d.deviceClass === 7) // Printer class
-          .map((d: any) => ({
-            id: d.deviceId,
-            name: d.productName || 'USB Printer',
-            type: 'usb',
-            status: 'disconnected'
-          }));
-        
-        setDevices(prev => [...prev, ...printerDevices]);
-      }
     } catch (error) {
-      console.error('Error scanning for printers:', error);
+      console.error('Error during device scan:', error);
+      setError('Failed to scan for printers. Please try again.');
     } finally {
       setIsScanning(false);
       setLastScanTime(Date.now());
     }
   };
-  
+
   const connectToDevice = async (device: PrinterDevice) => {
-    const updatedDevices = devices.map(d => ({
-      ...d,
-      status: d.id === device.id ? 'connecting' : d.status
-    }));
-    
-    setDevices(updatedDevices);
-    
     try {
-      if (device.type === 'bluetooth') {
-        const bluetooth = (navigator as any).bluetooth;
-        const bluetoothDevice = await bluetooth.requestDevice({
-          filters: [{ services: ['00001812-0000-1000-8000-00805f9b34fb'] }] // Printer service UUID
-        });
-        
-        const server = await bluetoothDevice.gatt.connect();
-        const service = await server.getPrimaryService('00001812-0000-1000-8000-00805f9b34fb');
-        
-        // Store the printer service for later use
-        (window as any).printerService = service;
-      } else if (device.type === 'usb') {
+      setDevices(prev => 
+        prev.map(d => ({
+          ...d,
+          status: d.id === device.id ? 'connecting' : d.status
+        }))
+      );
+
+      if (device.type === 'usb') {
         const usb = (navigator as any).usb;
-        const usbDevice = await usb.requestDevice({
-          filters: [{ classCode: 7 }] // Printer class
-        });
-        
-        await usbDevice.open();
-        await usbDevice.selectConfiguration(1);
-        await usbDevice.claimInterface(0);
-        
-        // Store the USB device for later use
-        (window as any).printerDevice = usbDevice;
-      }
-      
-      const connectedDevice = { ...device, status: 'connected' };
-      setDevices(devices.map(d => 
-        d.id === device.id ? connectedDevice : d
-      ));
-      
-      onConnect(connectedDevice);
-    } catch (error) {
-      console.error('Error connecting to printer:', error);
-      setDevices(devices.map(d => 
-        d.id === device.id ? { ...d, status: 'disconnected' } : d
-      ));
-    }
-  };
-  
-  // Auto-scan for USB printers only (no Bluetooth auto-scan)
-  useEffect(() => {
-    if (!autoScanEnabled) return;
-    
-    const scanInterval = setInterval(async () => {
-      if (Date.now() - lastScanTime > 10000 && 'usb' in navigator) { // Scan every 10 seconds
-        try {
-          const usb = (navigator as any).usb;
-          const devices = await usb.getDevices();
-          
-          const printerDevices = devices
-            .filter((d: any) => d.deviceClass === 7)
-            .map((d: any) => ({
-              id: d.deviceId,
-              name: d.productName || 'USB Printer',
-              type: 'usb',
-              status: 'disconnected'
-            }));
-          
-          setDevices(printerDevices);
-          setLastScanTime(Date.now());
-        } catch (error) {
-          console.error('Error scanning for USB printers:', error);
+        const usbDevices = await usb.getDevices();
+        const printerDevice = usbDevices.find(d => d.deviceId.toString() === device.id);
+
+        if (printerDevice) {
+          await printerDevice.open();
+          await printerDevice.selectConfiguration(1);
+          await printerDevice.claimInterface(0);
+
+          // Store the USB device for later use
+          (window as any).printerDevice = printerDevice;
+
+          const connectedDevice = { ...device, status: 'connected' };
+          setDevices(prev => 
+            prev.map(d => d.id === device.id ? connectedDevice : d)
+          );
+          onConnect(connectedDevice);
         }
       }
-    }, 10000);
-    
-    return () => clearInterval(scanInterval);
-  }, [lastScanTime, autoScanEnabled]);
-  
+    } catch (error) {
+      console.error('Error connecting to printer:', error);
+      setError('Failed to connect to printer. Please try again.');
+      setDevices(prev => 
+        prev.map(d => d.id === device.id ? { ...d, status: 'disconnected' } : d)
+      );
+    }
+  };
+
+  // Auto-scan on component mount if autoConnect is true
+  useEffect(() => {
+    if (autoConnect) {
+      scanForDevices();
+    }
+  }, [autoConnect]);
+
   return (
     <div className="w-full max-w-md mx-auto">
       <div className="bg-white p-6 rounded-lg shadow-md">
         <div className="flex justify-between items-center mb-6">
           <div className="flex items-center">
             <h2 className="text-xl font-semibold">Available Printers</h2>
-            {autoScanEnabled && (
-              <div className="ml-2 text-sm text-green-600 flex items-center">
-                <Wifi className="h-4 w-4 mr-1 animate-pulse" />
-                Auto-scanning USB
-              </div>
-            )}
           </div>
           <button 
             onClick={scanForDevices}
@@ -165,6 +130,12 @@ const PrinterConnection: React.FC<PrinterConnectionProps> = ({ onConnect, autoCo
             {isScanning ? 'Scanning...' : 'Scan for Printers'}
           </button>
         </div>
+
+        {error && (
+          <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-lg">
+            {error}
+          </div>
+        )}
         
         {devices.length > 0 ? (
           <div className="space-y-3">
@@ -174,16 +145,10 @@ const PrinterConnection: React.FC<PrinterConnectionProps> = ({ onConnect, autoCo
                 className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50 transition-all"
               >
                 <div className="flex items-center">
-                  {device.type === 'bluetooth' ? (
-                    <Bluetooth className="h-5 w-5 text-blue-500 mr-3" />
-                  ) : (
-                    <Plug className="h-5 w-5 text-gray-600 mr-3" />
-                  )}
+                  <Plug className="h-5 w-5 text-gray-600 mr-3" />
                   <div>
                     <p className="font-medium">{device.name}</p>
-                    <p className="text-xs text-gray-500">
-                      {device.type === 'bluetooth' ? 'Bluetooth' : 'USB'}
-                    </p>
+                    <p className="text-xs text-gray-500">USB Printer</p>
                   </div>
                 </div>
                 
