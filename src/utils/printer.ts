@@ -1,16 +1,28 @@
 import { PrinterDevice } from '../types';
 
 export async function printImage(imageData: string, printer: PrinterDevice): Promise<boolean> {
-  return new Promise((resolve) => {
+  return new Promise(async (resolve) => {
     try {
+      // Check if document.body exists
+      if (!document.body) {
+        console.error('Document body not available');
+        resolve(false);
+        return;
+      }
+
       // Create a hidden iframe for printing
       const iframe = document.createElement('iframe');
       iframe.style.display = 'none';
       document.body.appendChild(iframe);
       
-      // Ensure iframe is properly attached to DOM
+      // Wait for next tick to ensure iframe is attached
+      await new Promise(resolve => setTimeout(resolve, 0));
+      
+      // Double check iframe attachment
       if (!document.body.contains(iframe)) {
-        throw new Error('Failed to attach iframe to document');
+        console.error('Failed to attach iframe to document');
+        resolve(false);
+        return;
       }
       
       // Wait for iframe to be ready
@@ -56,18 +68,25 @@ export async function printImage(imageData: string, printer: PrinterDevice): Pro
             try {
               contentWindow.print();
               setTimeout(() => {
-                document.body.removeChild(iframe);
+                if (document.body.contains(iframe)) {
+                  document.body.removeChild(iframe);
+                }
                 resolve(true);
               }, 1000);
             } catch (error) {
               console.error('Print error:', error);
+              if (document.body.contains(iframe)) {
+                document.body.removeChild(iframe);
+              }
               resolve(false);
             }
           };
           
           img.onerror = () => {
             console.error('Image load error');
-            document.body.removeChild(iframe);
+            if (document.body.contains(iframe)) {
+              document.body.removeChild(iframe);
+            }
             resolve(false);
           };
           
@@ -79,7 +98,7 @@ export async function printImage(imageData: string, printer: PrinterDevice): Pro
           }
           resolve(false);
         }
-      }, 100); // Give iframe time to initialize
+      }, 100);
       
     } catch (error) {
       console.error('Print preparation error:', error);
