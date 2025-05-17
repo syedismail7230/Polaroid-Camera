@@ -1,40 +1,49 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Home, Share, ArrowLeft } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import ShareOptions from '../components/ShareOptions';
-import PrinterConnection from '../components/PrinterConnection';
+import { printImage } from '../utils/printer';
 
 const ShareScreen: React.FC = () => {
-  const { activePhoto, printer, connectPrinter, venue } = useAppContext();
+  const { activePhoto, printer, venue } = useAppContext();
+  const [printStatus, setPrintStatus] = useState<'printing' | 'done' | 'error' | null>(null);
   const navigate = useNavigate();
+  
+  useEffect(() => {
+    const printPhoto = async () => {
+      if (!activePhoto || !printer) return;
+      
+      setPrintStatus('printing');
+      try {
+        const success = await printImage(activePhoto.src, printer);
+        setPrintStatus(success ? 'done' : 'error');
+      } catch (error) {
+        console.error('Print error:', error);
+        setPrintStatus('error');
+      }
+    };
+
+    // Start printing automatically when component mounts
+    printPhoto();
+  }, [activePhoto, printer]);
   
   if (!activePhoto) {
     navigate('/');
     return null;
   }
   
-  const handlePrinterConnect = () => {
-    // After printer connection, we could automatically print in a real app
-  };
-  
   return (
     <div className="min-h-screen bg-gray-100 py-8 px-4">
       <div className="max-w-md mx-auto mb-8">
-        <button 
-          onClick={() => navigate(-1)}
-          className="flex items-center text-gray-600 hover:text-gray-800 mb-4"
-        >
-          <ArrowLeft className="h-4 w-4 mr-1" />
-          Back
-        </button>
-        
         <div className="text-center mb-8">
           <h1 className="text-2xl font-bold" style={{ color: venue.primaryColor }}>
-            Share & Print
+            Printing Your Photo
           </h1>
           <p className="text-gray-600 mt-2">
-            Your photo is printing! While you wait, share it digitally.
+            {printStatus === 'printing' && 'Your photo is being printed...'}
+            {printStatus === 'done' && 'Your photo has been printed!'}
+            {printStatus === 'error' && 'There was an error printing your photo. Please try again.'}
           </p>
         </div>
         
@@ -48,19 +57,15 @@ const ShareScreen: React.FC = () => {
         
         <div className="space-y-6">
           <ShareOptions photoSrc={activePhoto.src} />
-          
-          {!printer && (
-            <PrinterConnection onConnect={connectPrinter} />
-          )}
         </div>
         
         <div className="flex justify-center mt-8 space-x-4">
           <button
-            onClick={() => navigate('/')}
+            onClick={() => navigate('/payment')}
             className="flex items-center bg-blue-500 hover:bg-blue-600 text-white py-2 px-6 rounded-lg"
           >
             <Home className="h-5 w-5 mr-2" />
-            New Photo
+            Take More Photos
           </button>
         </div>
       </div>

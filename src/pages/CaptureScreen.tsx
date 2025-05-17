@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Camera } from 'lucide-react';
 import PhotoCapture from '../components/PhotoCapture';
@@ -9,9 +9,9 @@ import { v4 as uuidv4 } from 'uuid';
 const CaptureScreen: React.FC = () => {
   const location = useLocation();
   const { photoCount = 1 } = location.state || {};
+  const [remainingPhotos, setRemainingPhotos] = useState(photoCount);
   const [capturedPhotos, setCapturedPhotos] = useState<string[]>([]);
   const [step, setStep] = useState<'capture' | 'edit'>('capture');
-  const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const { addPhoto, setActivePhoto, venue } = useAppContext();
   const navigate = useNavigate();
   
@@ -37,11 +37,11 @@ const CaptureScreen: React.FC = () => {
     
     addPhoto(newPhoto);
     setActivePhoto(newPhoto);
+    setRemainingPhotos(prev => prev - 1);
 
-    if (capturedPhotos.length < photoCount) {
+    if (remainingPhotos > 1) {
       // More photos to capture
       setStep('capture');
-      setCurrentPhotoIndex(currentPhotoIndex + 1);
     } else {
       // All photos captured, proceed to share/print
       navigate('/share');
@@ -64,7 +64,9 @@ const CaptureScreen: React.FC = () => {
           />
         )}
         <h1 className="text-2xl font-bold" style={{ color: venue.primaryColor }}>
-          {step === 'capture' ? `Take Photo ${currentPhotoIndex + 1} of ${photoCount}` : 'Edit Your Photo'}
+          {step === 'capture' 
+            ? `Take Photo ${photoCount - remainingPhotos + 1} of ${photoCount}` 
+            : 'Edit Your Photo'}
         </h1>
       </div>
       
@@ -79,12 +81,6 @@ const CaptureScreen: React.FC = () => {
           />
         )}
       </div>
-      
-      {step === 'capture' && (
-        <div className="text-center text-sm text-gray-500 max-w-md mx-auto">
-          <p>Take a photo or select from your gallery to create a custom polaroid print</p>
-        </div>
-      )}
     </div>
   );
 };
