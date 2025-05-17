@@ -37,18 +37,13 @@ export async function printImage(imageData: string, printer: any): Promise<boole
     buffer[buffer.length - 2] = 0x03; // Feed 3 lines
     buffer[buffer.length - 1] = 0x1D; // Cut paper
     
-    // Send to printer in chunks with proper error handling
+    // Send to printer in chunks
     const CHUNK_SIZE = 64;
     for (let i = 0; i < buffer.length; i += CHUNK_SIZE) {
       const chunk = buffer.slice(i, Math.min(i + CHUNK_SIZE, buffer.length));
-      try {
-        await printerDevice.transferOut(1, chunk);
-        // Small delay between chunks to prevent buffer overflow
-        await new Promise(resolve => setTimeout(resolve, 20));
-      } catch (error) {
-        console.error('Error sending chunk to printer:', error);
-        return false;
-      }
+      await printerDevice.transferOut(1, chunk);
+      // Small delay between chunks to prevent buffer overflow
+      await new Promise(resolve => setTimeout(resolve, 20));
     }
     
     return true;

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Home, Share, ArrowLeft, Printer } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
@@ -7,43 +7,33 @@ import { printImage } from '../utils/printer';
 
 const ShareScreen: React.FC = () => {
   const { activePhoto, printer, venue } = useAppContext();
-  const [printStatus, setPrintStatus] = useState<'printing' | 'done' | 'error' | null>(null);
-  const [printAttempts, setPrintAttempts] = useState(0);
   const navigate = useNavigate();
   
   useEffect(() => {
-    const printPhoto = async () => {
-      if (!activePhoto || !printer || printStatus === 'done') return;
-      
-      setPrintStatus('printing');
+    const startPrinting = async () => {
+      if (!activePhoto || !printer) {
+        navigate('/payment');
+        return;
+      }
+
       try {
         const success = await printImage(activePhoto.src, printer);
         if (success) {
-          setPrintStatus('done');
-          // After successful print, navigate back to payment screen for next photo
+          // After successful print, navigate back to payment for next photo
           setTimeout(() => {
             navigate('/payment');
-          }, 3000);
-        } else {
-          // If print fails, retry up to 3 times
-          if (printAttempts < 3) {
-            setPrintAttempts(prev => prev + 1);
-            setTimeout(printPhoto, 2000); // Retry after 2 seconds
-          } else {
-            setPrintStatus('error');
-          }
+          }, 2000);
         }
       } catch (error) {
         console.error('Print error:', error);
-        setPrintStatus('error');
       }
     };
 
-    // Start printing automatically when component mounts
-    printPhoto();
-  }, [activePhoto, printer, printAttempts]);
+    // Start printing immediately when component mounts
+    startPrinting();
+  }, [activePhoto, printer]);
   
-  if (!activePhoto) {
+  if (!activePhoto || !printer) {
     navigate('/payment');
     return null;
   }
@@ -53,18 +43,11 @@ const ShareScreen: React.FC = () => {
       <div className="max-w-md mx-auto mb-8">
         <div className="text-center mb-8">
           <h1 className="text-2xl font-bold" style={{ color: venue.primaryColor }}>
-            {printStatus === 'printing' && 'Printing Your Photo...'}
-            {printStatus === 'done' && 'Photo Printed Successfully!'}
-            {printStatus === 'error' && 'Printing Error'}
+            Printing Your Photo...
           </h1>
-          <p className="text-gray-600 mt-2">
-            {printStatus === 'printing' && (
-              <div className="flex items-center justify-center">
-                <Printer className="h-5 w-5 mr-2 animate-pulse" />
-                Printing photo {printAttempts > 0 ? `(Attempt ${printAttempts + 1}/3)` : ''}...
-              </div>
-            )}
-            {printStatus === 'error' && 'There was an error printing. Please try again.'}
+          <p className="text-gray-600 mt-2 flex items-center justify-center">
+            <Printer className="h-5 w-5 mr-2 animate-pulse" />
+            Please wait while your photo prints
           </p>
         </div>
         
@@ -80,19 +63,7 @@ const ShareScreen: React.FC = () => {
           <ShareOptions photoSrc={activePhoto.src} />
         </div>
         
-        <div className="flex justify-center mt-8 space-x-4">
-          {printStatus === 'error' && (
-            <button
-              onClick={() => {
-                setPrintAttempts(0);
-                setPrintStatus(null);
-              }}
-              className="bg-red-500 hover:bg-red-600 text-white py-2 px-6 rounded-lg"
-            >
-              Retry Print
-            </button>
-          )}
-          
+        <div className="flex justify-center mt-8">
           <button
             onClick={() => navigate('/payment')}
             className="flex items-center bg-blue-500 hover:bg-blue-600 text-white py-2 px-6 rounded-lg"
