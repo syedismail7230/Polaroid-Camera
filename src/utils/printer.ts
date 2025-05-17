@@ -1,56 +1,49 @@
-export async function printImage(imageData: string, printerService: any) {
+export async function printImage(imageData: string, printer: any): Promise<boolean> {
   try {
-    // Convert base64 image to printer-compatible format
-    const rawData = await processImageForPrinter(imageData);
+    // Get the stored printer device
+    const printerDevice = (window as any).printerDevice;
+    if (!printerDevice) {
+      console.error('No printer device found');
+      return false;
+    }
+
+    // Convert base64 image to binary data
+    const base64Data = imageData.replace(/^data:image\/\w+;base64,/, '');
+    const binaryData = atob(base64Data);
     
-    // Send data to printer
-    if ('printerService' in window) {
-      // Bluetooth printer
-      const characteristic = await printerService.getCharacteristic('2A57'); // Printer characteristic
+    // Create buffer with printer commands
+    const buffer = new Uint8Array(binaryData.length + 8);
+    
+    // ESC/POS commands
+    buffer[0] = 0x1B; // ESC
+    buffer[1] = 0x40; // Initialize printer
+    buffer[2] = 0x1B;
+    buffer[3] = 0x61;
+    buffer[4] = 0x01; // Center alignment
+    
+    // Add image data
+    for (let i = 0; i < binaryData.length; i++) {
+      buffer[i + 5] = binaryData.charCodeAt(i);
+    }
+    
+    // Add feed and cut commands
+    buffer[buffer.length - 3] = 0x1B;
+    buffer[buffer.length - 2] = 0x64;
+    buffer[buffer.length - 1] = 0x03; // Feed 3 lines and cut
+    
+    // Send to printer in chunks
+    const CHUNK_SIZE = 64;
+    for (let i = 0; i < buffer.length; i += CHUNK_SIZE) {
+      const chunk = buffer.slice(i, Math.min(i + CHUNK_SIZE, buffer.length));
+      await printerDevice.transferOut(1, chunk);
       
-      // Split data into chunks (MTU size)
-      const chunkSize = 512;
-      for (let i = 0; i < rawData.length; i += chunkSize) {
-        const chunk = rawData.slice(i, i + chunkSize);
-        await characteristic.writeValue(chunk);
-      }
-    } else if ('printerDevice' in window) {
-      // USB printer
-      const printerDevice = (window as any).printerDevice;
-      await printerDevice.transferOut(1, rawData);
+      // Small delay between chunks to prevent buffer overflow
+      await new Promise(resolve => setTimeout(resolve, 10));
     }
     
     return true;
   } catch (error) {
-    console.error('Error printing:', error);
+    console.error('Printing error:', error);
     return false;
   }
-}
-
-async function processImageForPrinter(imageData: string): Promise<Uint8Array> {
-  // Remove data URL prefix
-  const base64Data = imageData.replace(/^data:image\/\w+;base64,/, '');
-  
-  // Convert to binary
-  const binaryData = atob(base64Data);
-  
-  // Create buffer
-  const buffer = new Uint8Array(binaryData.length);
-  for (let i = 0; i < binaryData.length; i++) {
-    buffer[i] = binaryData.charCodeAt(i);
-  }
-  
-  // Add printer commands (ESC/POS format)
-  const commands = new Uint8Array([
-    0x1B, 0x40,         // Initialize printer
-    0x1B, 0x61, 0x01,   // Center alignment
-    // Add more printer-specific commands as needed
-  ]);
-  
-  // Combine commands and image data
-  const finalData = new Uint8Array(commands.length + buffer.length);
-  finalData.set(commands);
-  finalData.set(buffer, commands.length);
-  
-  return finalData;
 }
