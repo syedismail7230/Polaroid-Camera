@@ -33,7 +33,7 @@ const PrinterConnection: React.FC<PrinterConnectionProps> = ({ onConnect, autoCo
       // Only proceed if a device was selected
       if (device) {
         const printerDevice: PrinterDevice = {
-          id: device.deviceId.toString(),
+          id: device.deviceId?.toString() ?? `usb-${Date.now()}`, // Added optional chaining and fallback
           name: device.productName || 'USB Printer',
           type: 'usb',
           status: 'disconnected'
@@ -90,7 +90,7 @@ const PrinterConnection: React.FC<PrinterConnectionProps> = ({ onConnect, autoCo
       if (device.type === 'usb') {
         const usb = (navigator as any).usb;
         const usbDevices = await usb.getDevices();
-        const printerDevice = usbDevices.find(d => d.deviceId.toString() === device.id);
+        const printerDevice = usbDevices.find(d => d.deviceId?.toString() === device.id); // Added optional chaining
 
         if (printerDevice) {
           await printerDevice.open();
