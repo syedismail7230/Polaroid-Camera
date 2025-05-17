@@ -12,11 +12,6 @@ const PrinterConnection: React.FC<PrinterConnectionProps> = ({ onConnect }) => {
   const [error, setError] = useState<string | null>(null);
   const [connectingDevice, setConnectingDevice] = useState<string | null>(null);
 
-  // Auto-scan on mount
-  useEffect(() => {
-    scanForDevices();
-  }, []);
-
   const scanForUSBPrinters = async () => {
     if (!('usb' in navigator)) {
       setError('USB support not available in this browser');
