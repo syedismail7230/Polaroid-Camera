@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Printer, Copy, Download } from 'lucide-react';
+import { printImage } from '../utils/printer';
+import { useAppContext } from '../context/AppContext';
 
 interface PrintPreviewProps {
   photoSrc: string;
@@ -19,6 +21,8 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
   onPrint 
 }) => {
   const [isPrinting, setIsPrinting] = useState(false);
+  const [printStatus, setPrintStatus] = useState<'idle' | 'printing' | 'success' | 'error'>('idle');
+  const { printer } = useAppContext();
   
   const getFilterClass = () => {
     switch (filter) {
@@ -40,15 +44,35 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     }
   };
   
-  const handlePrint = () => {
-    setIsPrinting(true);
+  const handlePrint = async () => {
+    if (!printer) return;
     
-    // Simulate print delay
-    setTimeout(() => {
+    setIsPrinting(true);
+    setPrintStatus('printing');
+    
+    try {
+      const success = await printImage(photoSrc, printer);
+      setPrintStatus(success ? 'success' : 'error');
+      
+      if (success) {
+        setTimeout(() => {
+          onPrint();
+        }, 1500);
+      }
+    } catch (error) {
+      console.error('Print error:', error);
+      setPrintStatus('error');
+    } finally {
       setIsPrinting(false);
-      onPrint();
-    }, 2000);
+    }
   };
+  
+  // Auto-print when component mounts
+  useEffect(() => {
+    if (printer && printStatus === 'idle') {
+      handlePrint();
+    }
+  }, [printer]);
   
   return (
     <div className="w-full max-w-md mx-auto">
@@ -75,33 +99,31 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
           </div>
         </div>
         
-        <div className="grid grid-cols-3 gap-3">
-          <button
-            onClick={handlePrint}
-            disabled={isPrinting}
-            className="flex flex-col items-center justify-center p-3 bg-blue-500 hover:bg-blue-600 text-white rounded-lg"
-          >
-            {isPrinting ? (
-              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mb-1"></div>
-            ) : (
-              <Printer className="h-5 w-5 mb-1" />
-            )}
-            <span className="text-sm">{isPrinting ? 'Printing...' : 'Print'}</span>
-          </button>
+        <div className="text-center">
+          {printStatus === 'printing' && (
+            <div className="flex items-center justify-center text-blue-600">
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 mr-2"></div>
+              Printing...
+            </div>
+          )}
           
-          <button
-            className="flex flex-col items-center justify-center p-3 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg"
-          >
-            <Copy className="h-5 w-5 mb-1" />
-            <span className="text-sm">Copy</span>
-          </button>
+          {printStatus === 'success' && (
+            <div className="text-green-600">
+              Print sent successfully!
+            </div>
+          )}
           
-          <button
-            className="flex flex-col items-center justify-center p-3 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg"
-          >
-            <Download className="h-5 w-5 mb-1" />
-            <span className="text-sm">Save</span>
-          </button>
+          {printStatus === 'error' && (
+            <div className="text-red-600 mb-4">
+              Print failed. Please try again.
+              <button
+                onClick={handlePrint}
+                className="mt-2 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg"
+              >
+                Retry Print
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
