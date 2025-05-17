@@ -33,7 +33,13 @@ export async function updateVenue(id: string, updates: Partial<any>) {
   return data;
 }
 
-export async function savePhoto(photoData: any) {
+export async function savePhoto(photoData: {
+  venue_id: string;
+  image_url: string;
+  filter: string;
+  frame: string;
+  caption?: string;
+}) {
   const { data, error } = await supabase
     .from('photos')
     .insert([photoData])
@@ -66,16 +72,17 @@ export async function getVenueAnalytics(venueId: string) {
   return data;
 }
 
-export async function updateAnalytics(venueId: string, date: string, updates: Partial<any>) {
+export async function updateAnalytics(venueId: string, date: string, updates: {
+  total_prints?: number;
+  total_revenue?: number;
+}) {
   const { data, error } = await supabase
     .from('analytics')
-    .upsert([
-      {
-        venue_id: venueId,
-        date,
-        ...updates
-      }
-    ])
+    .upsert([{
+      venue_id: venueId,
+      date,
+      ...updates
+    }])
     .select()
     .single();
 
