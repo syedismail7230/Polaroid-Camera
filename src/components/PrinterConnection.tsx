@@ -25,8 +25,8 @@ const PrinterConnection: React.FC<PrinterConnectionProps> = ({ onConnect, autoCo
         const bluetooth = (navigator as any).bluetooth;
         const device = await bluetooth.requestDevice({
           filters: [
-            { services: ['1812'] }, // Printer service UUID
-            { services: ['180F'] }  // Battery service UUID
+            { services: ['00001812-0000-1000-8000-00805f9b34fb'] }, // Printer service UUID
+            { services: ['0000180f-0000-1000-8000-00805f9b34fb'] }  // Battery service UUID
           ]
         });
         
@@ -77,11 +77,11 @@ const PrinterConnection: React.FC<PrinterConnectionProps> = ({ onConnect, autoCo
       if (device.type === 'bluetooth') {
         const bluetooth = (navigator as any).bluetooth;
         const bluetoothDevice = await bluetooth.requestDevice({
-          filters: [{ services: ['1812'] }]
+          filters: [{ services: ['00001812-0000-1000-8000-00805f9b34fb'] }] // Printer service UUID
         });
         
         const server = await bluetoothDevice.gatt.connect();
-        const service = await server.getPrimaryService('1812');
+        const service = await server.getPrimaryService('00001812-0000-1000-8000-00805f9b34fb');
         
         // Store the printer service for later use
         (window as any).printerService = service;
@@ -113,25 +113,35 @@ const PrinterConnection: React.FC<PrinterConnectionProps> = ({ onConnect, autoCo
     }
   };
   
-  // Auto-scan for printers periodically
+  // Auto-scan for USB printers only (no Bluetooth auto-scan)
   useEffect(() => {
     if (!autoScanEnabled) return;
     
-    const scanInterval = setInterval(() => {
-      if (Date.now() - lastScanTime > 10000) { // Scan every 10 seconds
-        scanForDevices();
+    const scanInterval = setInterval(async () => {
+      if (Date.now() - lastScanTime > 10000 && 'usb' in navigator) { // Scan every 10 seconds
+        try {
+          const usb = (navigator as any).usb;
+          const devices = await usb.getDevices();
+          
+          const printerDevices = devices
+            .filter((d: any) => d.deviceClass === 7)
+            .map((d: any) => ({
+              id: d.deviceId,
+              name: d.productName || 'USB Printer',
+              type: 'usb',
+              status: 'disconnected'
+            }));
+          
+          setDevices(printerDevices);
+          setLastScanTime(Date.now());
+        } catch (error) {
+          console.error('Error scanning for USB printers:', error);
+        }
       }
     }, 10000);
     
     return () => clearInterval(scanInterval);
   }, [lastScanTime, autoScanEnabled]);
-  
-  // Initial scan
-  useEffect(() => {
-    if (autoConnect) {
-      scanForDevices();
-    }
-  }, []);
   
   return (
     <div className="w-full max-w-md mx-auto">
@@ -142,7 +152,7 @@ const PrinterConnection: React.FC<PrinterConnectionProps> = ({ onConnect, autoCo
             {autoScanEnabled && (
               <div className="ml-2 text-sm text-green-600 flex items-center">
                 <Wifi className="h-4 w-4 mr-1 animate-pulse" />
-                Auto-scanning
+                Auto-scanning USB
               </div>
             )}
           </div>
@@ -152,7 +162,7 @@ const PrinterConnection: React.FC<PrinterConnectionProps> = ({ onConnect, autoCo
             className="text-blue-500 hover:text-blue-700 flex items-center text-sm"
           >
             <RefreshCw className={`h-4 w-4 mr-1 ${isScanning ? 'animate-spin' : ''}`} />
-            {isScanning ? 'Scanning...' : 'Scan'}
+            {isScanning ? 'Scanning...' : 'Scan for Printers'}
           </button>
         </div>
         
