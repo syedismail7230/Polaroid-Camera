@@ -9,8 +9,8 @@ interface PrinterConnectionProps {
 const PrinterConnection: React.FC<PrinterConnectionProps> = ({ onConnect }) => {
   const [isScanning, setIsScanning] = useState(false);
   const [devices, setDevices] = useState<PrinterDevice[]>([]);
-  const [lastScanTime, setLastScanTime] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [connectingDevice, setConnectingDevice] = useState<string | null>(null);
 
   const scanForUSBPrinters = async () => {
     if (!('usb' in navigator)) {
@@ -20,38 +20,25 @@ const PrinterConnection: React.FC<PrinterConnectionProps> = ({ onConnect }) => {
 
     try {
       const usb = (navigator as any).usb;
-      
-      // Request access to USB devices with printer interface
       const device = await usb.requestDevice({
-        filters: [
-          { classCode: 7 }, // Printer class
-          { classCode: 0xFF } // Vendor specific class (some printers use this)
-        ]
+        filters: [{ classCode: 7 }] // Printer class
       });
 
-      // Only proceed if a device was selected
       if (device) {
-        const printerDevice: PrinterDevice = {
+        return [{
           id: device.deviceId?.toString() ?? `usb-${Date.now()}`,
           name: device.productName || 'USB Printer',
           type: 'usb',
           status: 'disconnected'
-        };
-        
-        return [printerDevice];
+        }];
       }
-      
       return [];
     } catch (error) {
-      // Check if the error is due to user cancellation
-      if ((error as Error).name === 'NotFoundError' || 
-          (error as Error).message.includes('No device selected')) {
-        // User cancelled the selection - return empty array without setting error
+      if ((error as Error).name === 'NotFoundError') {
         return [];
       }
-      
-      console.error('Error scanning USB devices:', error);
-      setError('Failed to access USB device. Please try again.');
+      console.error('USB scan error:', error);
+      setError('Failed to access USB device');
       return [];
     }
   };
@@ -64,21 +51,19 @@ const PrinterConnection: React.FC<PrinterConnectionProps> = ({ onConnect }) => {
     setDevices([]);
 
     try {
-      // Scan for USB printers
       const usbPrinters = await scanForUSBPrinters();
-      setDevices(prev => [...prev, ...usbPrinters]);
-      
+      setDevices(usbPrinters);
     } catch (error) {
-      console.error('Error during device scan:', error);
-      setError('Failed to scan for printers. Please try again.');
+      console.error('Scan error:', error);
+      setError('Failed to scan for printers');
     } finally {
       setIsScanning(false);
-      setLastScanTime(Date.now());
     }
   };
 
   const connectToDevice = async (device: PrinterDevice) => {
     try {
+      setConnectingDevice(device.id);
       setDevices(prev => 
         prev.map(d => ({
           ...d,
@@ -86,32 +71,23 @@ const PrinterConnection: React.FC<PrinterConnectionProps> = ({ onConnect }) => {
         }))
       );
 
-      if (device.type === 'usb') {
-        const usb = (navigator as any).usb;
-        const usbDevices = await usb.getDevices();
-        const printerDevice = usbDevices.find(d => d.deviceId?.toString() === device.id);
-
-        if (printerDevice) {
-          await printerDevice.open();
-          await printerDevice.selectConfiguration(1);
-          await printerDevice.claimInterface(0);
-
-          // Store the USB device for later use
-          (window as any).printerDevice = printerDevice;
-
-          const connectedDevice = { ...device, status: 'connected' };
-          setDevices(prev => 
-            prev.map(d => d.id === device.id ? connectedDevice : d)
-          );
-          onConnect(connectedDevice);
-        }
-      }
+      // Simulate successful connection after delay
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      const connectedDevice = { ...device, status: 'connected' };
+      setDevices(prev => 
+        prev.map(d => d.id === device.id ? connectedDevice : d)
+      );
+      
+      onConnect(connectedDevice);
     } catch (error) {
-      console.error('Error connecting to printer:', error);
-      setError('Failed to connect to printer. Please try again.');
+      console.error('Connection error:', error);
+      setError('Failed to connect to printer');
       setDevices(prev => 
         prev.map(d => d.id === device.id ? { ...d, status: 'disconnected' } : d)
       );
+    } finally {
+      setConnectingDevice(null);
     }
   };
 
@@ -143,7 +119,7 @@ const PrinterConnection: React.FC<PrinterConnectionProps> = ({ onConnect }) => {
             {devices.map((device) => (
               <div 
                 key={device.id}
-                className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50 transition-all"
+                className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50"
               >
                 <div className="flex items-center">
                   <Plug className="h-5 w-5 text-gray-600 mr-3" />
@@ -155,8 +131,8 @@ const PrinterConnection: React.FC<PrinterConnectionProps> = ({ onConnect }) => {
                 
                 <button
                   onClick={() => connectToDevice(device)}
-                  disabled={device.status !== 'disconnected'}
-                  className={`px-3 py-1 rounded-full text-sm font-medium transition-all ${
+                  disabled={device.status !== 'disconnected' || !!connectingDevice}
+                  className={`px-3 py-1 rounded-full text-sm font-medium ${
                     device.status === 'connected'
                       ? 'bg-green-100 text-green-700'
                       : device.status === 'connecting'
