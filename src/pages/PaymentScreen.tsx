@@ -4,10 +4,11 @@ import { ArrowLeft } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import PaymentProcess from '../components/PaymentProcess';
 import PhotoPackageSelector from '../components/PhotoPackageSelector';
+import PrinterConnection from '../components/PrinterConnection';
 
 const PaymentScreen: React.FC = () => {
   const [selectedPackage, setSelectedPackage] = useState<any>(null);
-  const { venue } = useAppContext();
+  const { venue, printer } = useAppContext();
   const navigate = useNavigate();
   
   const handlePackageSelect = (pkg: any) => {
@@ -16,6 +17,11 @@ const PaymentScreen: React.FC = () => {
   
   const handlePaymentComplete = (success: boolean) => {
     if (success) {
+      if (!printer) {
+        // If no printer is connected, show printer selection
+        setSelectedPackage(null);
+        return;
+      }
       navigate('/capture', { 
         state: { photoCount: selectedPackage.count } 
       });
@@ -27,11 +33,13 @@ const PaymentScreen: React.FC = () => {
       <div className="max-w-md mx-auto mb-8">
         <div className="text-center mb-8">
           <h1 className="text-2xl font-bold" style={{ color: venue.primaryColor }}>
-            {selectedPackage ? 'Complete Payment' : 'Choose Your Package'}
+            {!printer ? 'Connect Printer' : selectedPackage ? 'Complete Payment' : 'Choose Your Package'}
           </h1>
         </div>
         
-        {selectedPackage ? (
+        {!printer ? (
+          <PrinterConnection onConnect={() => setSelectedPackage(null)} />
+        ) : selectedPackage ? (
           <PaymentProcess 
             price={selectedPackage.price}
             onComplete={handlePaymentComplete}
