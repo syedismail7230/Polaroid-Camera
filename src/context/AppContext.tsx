@@ -75,54 +75,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   useEffect(() => {
     const loadInitialData = async () => {
       try {
-        // First check if the venue exists
-        const { data: venueData, error: venueError } = await supabase
+        const { data: venueData } = await supabase
           .from('venues')
           .select('*')
           .eq('id', DEFAULT_VENUE_ID)
-          .maybeSingle();
+          .single();
 
-        if (venueError) {
-          console.error('Error fetching venue:', venueError);
-        }
-
-        // If venue doesn't exist, create it
-        if (!venueData) {
-          const { data: newVenue, error: insertError } = await supabase
-            .from('venues')
-            .insert([{
-              id: DEFAULT_VENUE_ID,
-              name: defaultVenue.name,
-              logo_url: defaultVenue.logo,
-              primary_color: defaultVenue.primaryColor,
-              secondary_color: defaultVenue.secondaryColor,
-              contact_email: defaultVenue.contactEmail
-            }])
-            .select()
-            .single();
-
-          if (insertError) {
-            console.error('Error creating default venue:', insertError);
-          } else if (newVenue) {
-            setVenue({
-              id: newVenue.id,
-              name: newVenue.name,
-              logo: newVenue.logo_url,
-              primaryColor: newVenue.primary_color,
-              secondaryColor: newVenue.secondary_color,
-              contactEmail: newVenue.contact_email
-            });
-          }
-        } else {
-          // Use the existing venue data
-          setVenue({
-            id: venueData.id,
-            name: venueData.name,
-            logo: venueData.logo_url,
-            primaryColor: venueData.primary_color,
-            secondaryColor: venueData.secondary_color,
-            contactEmail: venueData.contact_email
-          });
+        if (venueData) {
+          setVenue(venueData);
         }
 
         const { data: photosData } = await supabase
@@ -224,26 +184,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     try {
       const { data } = await supabase
         .from('venues')
-        .update({
-          name: updatedVenue.name,
-          logo_url: updatedVenue.logo,
-          primary_color: updatedVenue.primaryColor,
-          secondary_color: updatedVenue.secondaryColor,
-          contact_email: updatedVenue.contactEmail
-        })
+        .update(updatedVenue)
         .eq('id', updatedVenue.id)
         .select()
         .single();
 
       if (data) {
-        setVenue({
-          id: data.id,
-          name: data.name,
-          logo: data.logo_url,
-          primaryColor: data.primary_color,
-          secondaryColor: data.secondary_color,
-          contactEmail: data.contact_email
-        });
+        setVenue(data);
       }
     } catch (error) {
       console.error('Error updating venue:', error);
