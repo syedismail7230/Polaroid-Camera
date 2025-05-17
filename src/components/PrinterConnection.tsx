@@ -1,13 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { Bluetooth, Plug, RefreshCw, Printer, WifiOff, Wifi } from 'lucide-react';
+import React, { useState } from 'react';
+import { Plug, RefreshCw, WifiOff } from 'lucide-react';
 import { PrinterDevice } from '../types';
 
 interface PrinterConnectionProps {
   onConnect: (device: PrinterDevice) => void;
-  autoConnect?: boolean;
 }
 
-const PrinterConnection: React.FC<PrinterConnectionProps> = ({ onConnect, autoConnect = true }) => {
+const PrinterConnection: React.FC<PrinterConnectionProps> = ({ onConnect }) => {
   const [isScanning, setIsScanning] = useState(false);
   const [devices, setDevices] = useState<PrinterDevice[]>([]);
   const [lastScanTime, setLastScanTime] = useState(0);
@@ -33,7 +32,7 @@ const PrinterConnection: React.FC<PrinterConnectionProps> = ({ onConnect, autoCo
       // Only proceed if a device was selected
       if (device) {
         const printerDevice: PrinterDevice = {
-          id: device.deviceId?.toString() ?? `usb-${Date.now()}`, // Added optional chaining and fallback
+          id: device.deviceId?.toString() ?? `usb-${Date.now()}`,
           name: device.productName || 'USB Printer',
           type: 'usb',
           status: 'disconnected'
@@ -90,7 +89,7 @@ const PrinterConnection: React.FC<PrinterConnectionProps> = ({ onConnect, autoCo
       if (device.type === 'usb') {
         const usb = (navigator as any).usb;
         const usbDevices = await usb.getDevices();
-        const printerDevice = usbDevices.find(d => d.deviceId?.toString() === device.id); // Added optional chaining
+        const printerDevice = usbDevices.find(d => d.deviceId?.toString() === device.id);
 
         if (printerDevice) {
           await printerDevice.open();
@@ -115,13 +114,6 @@ const PrinterConnection: React.FC<PrinterConnectionProps> = ({ onConnect, autoCo
       );
     }
   };
-
-  // Auto-scan on component mount if autoConnect is true
-  useEffect(() => {
-    if (autoConnect) {
-      scanForDevices();
-    }
-  }, [autoConnect]);
 
   return (
     <div className="w-full max-w-md mx-auto">
