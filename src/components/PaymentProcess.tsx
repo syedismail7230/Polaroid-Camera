@@ -4,10 +4,11 @@ import { supabase } from '../lib/supabase';
 
 interface PaymentProcessProps {
   price: number;
+  venueId: string; // Add venueId prop
   onComplete: (success: boolean) => void;
 }
 
-const PaymentProcess: React.FC<PaymentProcessProps> = ({ price, onComplete }) => {
+const PaymentProcess: React.FC<PaymentProcessProps> = ({ price, venueId, onComplete }) => {
   const [selectedMethod, setSelectedMethod] = useState<string | null>(null);
   const [processing, setProcessing] = useState(false);
   const [status, setStatus] = useState<'idle' | 'processing' | 'success' | 'failed'>('idle');
@@ -23,11 +24,12 @@ const PaymentProcess: React.FC<PaymentProcessProps> = ({ price, onComplete }) =>
     setStatus('processing');
     
     try {
-      // Record the payment in Supabase
+      // Record the payment in Supabase with venue_id
       const { error } = await supabase
         .from('analytics')
         .upsert([
           {
+            venue_id: venueId, // Include venue_id in the insert
             date: new Date().toISOString().split('T')[0],
             total_revenue: price,
             total_prints: 1
