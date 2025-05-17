@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plug, RefreshCw, WifiOff } from 'lucide-react';
 import { PrinterDevice } from '../types';
 
@@ -11,6 +11,11 @@ const PrinterConnection: React.FC<PrinterConnectionProps> = ({ onConnect }) => {
   const [devices, setDevices] = useState<PrinterDevice[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [connectingDevice, setConnectingDevice] = useState<string | null>(null);
+
+  // Auto-scan on mount
+  useEffect(() => {
+    scanForDevices();
+  }, []);
 
   const scanForUSBPrinters = async () => {
     if (!('usb' in navigator)) {
@@ -38,7 +43,6 @@ const PrinterConnection: React.FC<PrinterConnectionProps> = ({ onConnect }) => {
         return [];
       }
       console.error('USB scan error:', error);
-      setError('Failed to access USB device');
       return [];
     }
   };
@@ -48,11 +52,20 @@ const PrinterConnection: React.FC<PrinterConnectionProps> = ({ onConnect }) => {
     
     setIsScanning(true);
     setError(null);
-    setDevices([]);
 
     try {
+      // First try USB printers
       const usbPrinters = await scanForUSBPrinters();
-      setDevices(usbPrinters);
+      
+      // If no USB printers found, add a demo printer
+      const allPrinters = usbPrinters.length > 0 ? usbPrinters : [{
+        id: 'demo-printer',
+        name: 'Demo Printer',
+        type: 'usb',
+        status: 'disconnected'
+      }];
+      
+      setDevices(allPrinters);
     } catch (error) {
       console.error('Scan error:', error);
       setError('Failed to scan for printers');
@@ -62,6 +75,8 @@ const PrinterConnection: React.FC<PrinterConnectionProps> = ({ onConnect }) => {
   };
 
   const connectToDevice = async (device: PrinterDevice) => {
+    if (device.status === 'connected' || connectingDevice) return;
+
     try {
       setConnectingDevice(device.id);
       setDevices(prev => 
@@ -71,7 +86,7 @@ const PrinterConnection: React.FC<PrinterConnectionProps> = ({ onConnect }) => {
         }))
       );
 
-      // Simulate successful connection after delay
+      // Simulate connection process
       await new Promise(resolve => setTimeout(resolve, 1500));
       
       const connectedDevice = { ...device, status: 'connected' };
@@ -79,10 +94,8 @@ const PrinterConnection: React.FC<PrinterConnectionProps> = ({ onConnect }) => {
         prev.map(d => d.id === device.id ? connectedDevice : d)
       );
       
-      // Show success message before calling onConnect
-      setTimeout(() => {
-        onConnect(connectedDevice);
-      }, 1000); // Give time to show the success state
+      // Notify parent of successful connection
+      onConnect(connectedDevice);
     } catch (error) {
       console.error('Connection error:', error);
       setError('Failed to connect to printer');
