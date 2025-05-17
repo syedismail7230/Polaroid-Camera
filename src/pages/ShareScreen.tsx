@@ -12,16 +12,16 @@ const ShareScreen: React.FC = () => {
   useEffect(() => {
     const startPrinting = async () => {
       if (!activePhoto || !printer) {
-        navigate('/payment');
+        navigate('/capture');
         return;
       }
 
       try {
         const success = await printImage(activePhoto.src, printer);
         if (success) {
-          // After successful print, navigate back to payment for next photo
+          // After successful print, navigate back to capture for next photo if needed
           setTimeout(() => {
-            navigate('/payment');
+            navigate('/capture');
           }, 2000);
         }
       } catch (error) {
@@ -31,10 +31,10 @@ const ShareScreen: React.FC = () => {
 
     // Start printing immediately when component mounts
     startPrinting();
-  }, [activePhoto, printer]);
+  }, [activePhoto, printer, navigate]);
   
   if (!activePhoto || !printer) {
-    navigate('/payment');
+    navigate('/capture');
     return null;
   }
   
@@ -65,7 +65,7 @@ const ShareScreen: React.FC = () => {
         
         <div className="flex justify-center mt-8">
           <button
-            onClick={() => navigate('/payment')}
+            onClick={() => navigate('/capture')}
             className="flex items-center bg-blue-500 hover:bg-blue-600 text-white py-2 px-6 rounded-lg"
           >
             <Home className="h-5 w-5 mr-2" />

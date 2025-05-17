@@ -39,13 +39,8 @@ const CaptureScreen: React.FC = () => {
     setActivePhoto(newPhoto);
     setRemainingPhotos(prev => prev - 1);
 
-    if (remainingPhotos > 1) {
-      // More photos to capture
-      setStep('capture');
-    } else {
-      // All photos captured, proceed to share/print
-      navigate('/share');
-    }
+    // Always navigate to share screen for printing
+    navigate('/share');
   };
   
   const handleEditCancel = () => {
