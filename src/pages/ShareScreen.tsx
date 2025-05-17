@@ -20,6 +20,10 @@ const ShareScreen: React.FC = () => {
         const success = await printImage(activePhoto.src, printer);
         if (success) {
           setPrintStatus('done');
+          // After successful print, navigate back to payment screen for next photo
+          setTimeout(() => {
+            navigate('/payment');
+          }, 3000);
         } else {
           // If print fails, retry up to 3 times
           if (printAttempts < 3) {
@@ -57,7 +61,7 @@ const ShareScreen: React.FC = () => {
             {printStatus === 'printing' && (
               <div className="flex items-center justify-center">
                 <Printer className="h-5 w-5 mr-2 animate-pulse" />
-                Sending to printer...
+                Printing photo {printAttempts > 0 ? `(Attempt ${printAttempts + 1}/3)` : ''}...
               </div>
             )}
             {printStatus === 'error' && 'There was an error printing. Please try again.'}
