@@ -10,14 +10,12 @@ const PhotoCapture: React.FC<PhotoCaptureProps> = ({ onCapture }) => {
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [cameraLoading, setCameraLoading] = useState(true);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
   const startCamera = async () => {
     try {
-      setCameraLoading(true);
       setError(null);
       
       const stream = await navigator.mediaDevices.getUserMedia({ 
@@ -36,15 +34,11 @@ const PhotoCapture: React.FC<PhotoCaptureProps> = ({ onCapture }) => {
         videoRef.current.onloadedmetadata = () => {
           videoRef.current?.play();
           setIsCapturing(true);
-          setCameraLoading(false);
-          // Start countdown after camera is fully loaded
-          setTimeout(startCountdown, 1000);
         };
       }
     } catch (err) {
       console.error('Error accessing camera:', err);
       setError('Unable to access camera. Please check permissions and try again.');
-      setCameraLoading(false);
     }
   };
 
@@ -85,33 +79,39 @@ const PhotoCapture: React.FC<PhotoCaptureProps> = ({ onCapture }) => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
     
-    // Set canvas size to match video dimensions
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     
     const context = canvas.getContext('2d');
     if (context) {
-      // Flip horizontally for selfie view
       context.scale(-1, 1);
       context.drawImage(video, -canvas.width, 0, canvas.width, canvas.height);
       
-      // Get high-quality JPEG
       const imageData = canvas.toDataURL('image/jpeg', 0.9);
       setCapturedImage(imageData);
       stopCamera();
+      setCountdown(null);
       
-      // Automatically proceed to print
       setTimeout(() => {
         onCapture(imageData);
       }, 1500);
     }
   };
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const imageData = reader.result as string;
+        setCapturedImage(imageData);
+        onCapture(imageData);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   useEffect(() => {
-    // Start camera automatically when component mounts
-    startCamera();
-    
-    // Cleanup when component unmounts
     return () => {
       stopCamera();
     };
@@ -132,10 +132,29 @@ const PhotoCapture: React.FC<PhotoCaptureProps> = ({ onCapture }) => {
           </div>
         ) : (
           <>
-            {cameraLoading && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center text-white bg-black bg-opacity-75">
-                <div className="animate-spin rounded-full h-12 w-12 border-4 border-white border-t-transparent mb-4"></div>
-                <p>Starting camera...</p>
+            {!isCapturing && !capturedImage && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center text-white">
+                <p className="text-lg mb-6">Choose how to take your photo</p>
+                <div className="flex space-x-4">
+                  <button 
+                    onClick={startCamera}
+                    className="bg-blue-500 hover:bg-blue-600 text-white font-medium py-3 px-6 rounded-lg flex items-center transition-all"
+                  >
+                    <Camera className="mr-2 h-5 w-5" />
+                    Use Camera
+                  </button>
+                  
+                  <label className="bg-pink-500 hover:bg-pink-600 text-white font-medium py-3 px-6 rounded-lg flex items-center cursor-pointer transition-all">
+                    <Image className="mr-2 h-5 w-5" />
+                    Upload Photo
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      onChange={handleFileSelect} 
+                      className="hidden" 
+                    />
+                  </label>
+                </div>
               </div>
             )}
             
@@ -169,6 +188,15 @@ const PhotoCapture: React.FC<PhotoCaptureProps> = ({ onCapture }) => {
         
         <canvas ref={canvasRef} className="hidden" />
       </div>
+
+      {isCapturing && !countdown && (
+        <button 
+          onClick={startCountdown}
+          className="bg-pink-500 hover:bg-pink-600 text-white font-medium py-3 px-8 rounded-full transition-all"
+        >
+          Take Photo
+        </button>
+      )}
     </div>
   );
 };
