@@ -26,10 +26,9 @@ interface AppContextType {
 }
 
 const PRINTER_STORAGE_KEY = 'polaroid_printer';
-const DEFAULT_VENUE_ID = '123e4567-e89b-12d3-a456-426614174000';
 
 const defaultVenue: Venue = {
-  id: DEFAULT_VENUE_ID,
+  id: 'default',
   name: 'Polaroid Booth',
   logo: 'https://cdn-icons-png.flaticon.com/512/3004/3004613.png',
   primaryColor: '#3498db',
@@ -78,7 +77,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         const { data: venueData } = await supabase
           .from('venues')
           .select('*')
-          .eq('id', DEFAULT_VENUE_ID)
+          .eq('id', 'default')
           .single();
 
         if (venueData) {
@@ -98,7 +97,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         const { data: analyticsData } = await supabase
           .from('analytics')
           .select('*')
-          .eq('venue_id', DEFAULT_VENUE_ID)
+          .eq('venue_id', 'default')
           .order('date', { ascending: false })
           .limit(7);
 
