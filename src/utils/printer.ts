@@ -3,9 +3,9 @@ import { PrinterDevice } from '../types';
 export async function printImage(imageData: string, printer: PrinterDevice): Promise<boolean> {
   return new Promise(async (resolve) => {
     try {
-      // Check if document.body exists
-      if (!document.body) {
-        console.error('Document body not available');
+      // Check if document exists and has a body
+      if (typeof document === 'undefined' || !document.body) {
+        console.error('Document or document.body not available');
         resolve(false);
         return;
       }
@@ -18,12 +18,23 @@ export async function printImage(imageData: string, printer: PrinterDevice): Pro
       // Wait for next tick to ensure iframe is attached
       await new Promise(resolve => setTimeout(resolve, 0));
       
-      // Double check iframe attachment
-      if (!document.body.contains(iframe)) {
+      // Double check iframe attachment and document.body availability
+      if (typeof document === 'undefined' || !document.body || !document.body.contains(iframe)) {
         console.error('Failed to attach iframe to document');
         resolve(false);
         return;
       }
+      
+      // Safe cleanup function to remove iframe
+      const cleanupIframe = () => {
+        try {
+          if (typeof document !== 'undefined' && document.body && iframe && document.body.contains(iframe)) {
+            document.body.removeChild(iframe);
+          }
+        } catch (error) {
+          console.error('Cleanup error:', error);
+        }
+      };
       
       // Wait for iframe to be ready
       setTimeout(() => {
@@ -68,34 +79,26 @@ export async function printImage(imageData: string, printer: PrinterDevice): Pro
             try {
               contentWindow.print();
               setTimeout(() => {
-                if (document.body.contains(iframe)) {
-                  document.body.removeChild(iframe);
-                }
+                cleanupIframe();
                 resolve(true);
               }, 1000);
             } catch (error) {
               console.error('Print error:', error);
-              if (document.body.contains(iframe)) {
-                document.body.removeChild(iframe);
-              }
+              cleanupIframe();
               resolve(false);
             }
           };
           
           img.onerror = () => {
             console.error('Image load error');
-            if (document.body.contains(iframe)) {
-              document.body.removeChild(iframe);
-            }
+            cleanupIframe();
             resolve(false);
           };
           
           doc.close();
         } catch (error) {
           console.error('Print preparation error:', error);
-          if (document.body.contains(iframe)) {
-            document.body.removeChild(iframe);
-          }
+          cleanupIframe();
           resolve(false);
         }
       }, 100);
