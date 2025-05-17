@@ -1,4 +1,4 @@
-import React, { createContext, useState, useContext, ReactNode } from 'react';
+import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
 import { 
   Photo, 
   Venue, 
@@ -23,6 +23,8 @@ interface AppContextType {
   analytics: AnalyticsData;
   updateAnalytics: (data: Partial<AnalyticsData>) => void;
 }
+
+const PRINTER_STORAGE_KEY = 'polaroid_printer';
 
 const defaultVenue: Venue = {
   id: 'default',
@@ -62,9 +64,21 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [activePhoto, setActivePhoto] = useState<Photo | null>(null);
   const [venue, setVenue] = useState<Venue>(defaultVenue);
-  const [printer, setPrinter] = useState<PrinterDevice | null>(null);
+  const [printer, setPrinter] = useState<PrinterDevice | null>(() => {
+    const savedPrinter = localStorage.getItem(PRINTER_STORAGE_KEY);
+    return savedPrinter ? JSON.parse(savedPrinter) : null;
+  });
   const [analytics, setAnalytics] = useState<AnalyticsData>(defaultAnalytics);
   
+  // Save printer to localStorage whenever it changes
+  useEffect(() => {
+    if (printer) {
+      localStorage.setItem(PRINTER_STORAGE_KEY, JSON.stringify(printer));
+    } else {
+      localStorage.removeItem(PRINTER_STORAGE_KEY);
+    }
+  }, [printer]);
+
   const addPhoto = (photo: Photo) => {
     setPhotos(prev => [photo, ...prev]);
     
@@ -72,7 +86,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setAnalytics(prev => ({
       ...prev,
       totalPrints: prev.totalPrints + 1,
-      totalRevenue: prev.totalRevenue + 5.00, // Assuming $5 per print
+      totalRevenue: prev.totalRevenue + 5.00, // Assuming ₹5 per print
       printsByDay: prev.printsByDay.map((day, idx) => 
         idx === prev.printsByDay.length - 1 
           ? { ...day, count: day.count + 1 } 
