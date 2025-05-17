@@ -1,4 +1,5 @@
 import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
+import { supabase, savePhoto, updateAnalytics } from '../lib/supabase';
 import { 
   Photo, 
   Venue, 
@@ -36,26 +37,16 @@ const defaultVenue: Venue = {
 };
 
 const defaultAnalytics: AnalyticsData = {
-  totalPrints: 127,
-  totalRevenue: 635.00,
-  printsByDay: [
-    { date: 'Mon', count: 15 },
-    { date: 'Tue', count: 22 },
-    { date: 'Wed', count: 18 },
-    { date: 'Thu', count: 25 },
-    { date: 'Fri', count: 30 },
-    { date: 'Sat', count: 42 },
-    { date: 'Sun', count: 35 }
-  ],
-  revenueByDay: [
-    { date: 'Mon', amount: 75.00 },
-    { date: 'Tue', amount: 110.00 },
-    { date: 'Wed', amount: 90.00 },
-    { date: 'Thu', amount: 125.00 },
-    { date: 'Fri', amount: 150.00 },
-    { date: 'Sat', amount: 210.00 },
-    { date: 'Sun', amount: 175.00 }
-  ]
+  totalPrints: 0,
+  totalRevenue: 0,
+  printsByDay: Array.from({ length: 7 }, (_, i) => ({
+    date: new Date(Date.now() - (6 - i) * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { weekday: 'short' }),
+    count: 0
+  })),
+  revenueByDay: Array.from({ length: 7 }, (_, i) => ({
+    date: new Date(Date.now() - (6 - i) * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { weekday: 'short' }),
+    amount: 0
+  }))
 };
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -79,33 +70,130 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   }, [printer]);
 
-  const addPhoto = (photo: Photo) => {
-    setPhotos(prev => [photo, ...prev]);
-    
-    // Update analytics when photo is added
-    setAnalytics(prev => ({
-      ...prev,
-      totalPrints: prev.totalPrints + 1,
-      totalRevenue: prev.totalRevenue + 5.00, // Assuming ₹5 per print
-      printsByDay: prev.printsByDay.map((day, idx) => 
-        idx === prev.printsByDay.length - 1 
-          ? { ...day, count: day.count + 1 } 
-          : day
-      ),
-      revenueByDay: prev.revenueByDay.map((day, idx) => 
-        idx === prev.revenueByDay.length - 1 
-          ? { ...day, amount: day.amount + 5.00 } 
-          : day
-      )
-    }));
+  // Load initial data from Supabase
+  useEffect(() => {
+    const loadInitialData = async () => {
+      try {
+        const { data: venueData } = await supabase
+          .from('venues')
+          .select('*')
+          .eq('id', 'default')
+          .single();
+
+        if (venueData) {
+          setVenue(venueData);
+        }
+
+        const { data: photosData } = await supabase
+          .from('photos')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(50);
+
+        if (photosData) {
+          setPhotos(photosData);
+        }
+
+        const { data: analyticsData } = await supabase
+          .from('analytics')
+          .select('*')
+          .eq('venue_id', 'default')
+          .order('date', { ascending: false })
+          .limit(7);
+
+        if (analyticsData) {
+          // Transform analytics data to match our format
+          const transformed: AnalyticsData = {
+            totalPrints: analyticsData.reduce((sum, day) => sum + day.total_prints, 0),
+            totalRevenue: analyticsData.reduce((sum, day) => sum + Number(day.total_revenue), 0),
+            printsByDay: analyticsData.map(day => ({
+              date: new Date(day.date).toLocaleDateString('en-US', { weekday: 'short' }),
+              count: day.total_prints
+            })),
+            revenueByDay: analyticsData.map(day => ({
+              date: new Date(day.date).toLocaleDateString('en-US', { weekday: 'short' }),
+              amount: Number(day.total_revenue)
+            }))
+          };
+          setAnalytics(transformed);
+        }
+      } catch (error) {
+        console.error('Error loading initial data:', error);
+      }
+    };
+
+    loadInitialData();
+  }, []);
+
+  const addPhoto = async (photo: Photo) => {
+    try {
+      // Save photo to Supabase
+      const savedPhoto = await savePhoto({
+        venue_id: venue.id,
+        image_url: photo.src,
+        filter: photo.filter,
+        frame: photo.frame,
+        caption: photo.caption
+      });
+
+      // Update local state
+      setPhotos(prev => [savedPhoto, ...prev]);
+      
+      // Update analytics
+      const today = new Date().toISOString().split('T')[0];
+      await updateAnalytics(venue.id, today, {
+        total_prints: analytics.totalPrints + 1,
+        total_revenue: analytics.totalRevenue + 5.00
+      });
+
+      setAnalytics(prev => ({
+        ...prev,
+        totalPrints: prev.totalPrints + 1,
+        totalRevenue: prev.totalRevenue + 5.00,
+        printsByDay: prev.printsByDay.map((day, idx) => 
+          idx === prev.printsByDay.length - 1 
+            ? { ...day, count: day.count + 1 } 
+            : day
+        ),
+        revenueByDay: prev.revenueByDay.map((day, idx) => 
+          idx === prev.revenueByDay.length - 1 
+            ? { ...day, amount: day.amount + 5.00 } 
+            : day
+        )
+      }));
+    } catch (error) {
+      console.error('Error saving photo:', error);
+    }
   };
   
-  const deletePhoto = (id: string) => {
-    setPhotos(prev => prev.filter(photo => photo.id !== id));
+  const deletePhoto = async (id: string) => {
+    try {
+      await supabase
+        .from('photos')
+        .delete()
+        .eq('id', id);
+
+      setPhotos(prev => prev.filter(photo => photo.id !== id));
+    } catch (error) {
+      console.error('Error deleting photo:', error);
+    }
   };
   
-  const updateVenue = (updatedVenue: Venue) => {
-    setVenue(updatedVenue);
+  const updateVenue = async (updatedVenue: Venue) => {
+    try {
+      const { data } = await supabase
+        .from('venues')
+        .update(updatedVenue)
+        .eq('id', updatedVenue.id)
+        .select()
+        .single();
+
+      if (data) {
+        setVenue(data);
+      }
+    } catch (error) {
+      console.error('Error updating venue:', error);
+    }
   };
   
   const connectPrinter = (device: PrinterDevice) => {
@@ -116,7 +204,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setPrinter(null);
   };
   
-  const updateAnalytics = (data: Partial<AnalyticsData>) => {
+  const updateAnalyticsData = async (data: Partial<AnalyticsData>) => {
     setAnalytics(prev => ({ ...prev, ...data }));
   };
   
@@ -133,7 +221,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       connectPrinter,
       disconnectPrinter,
       analytics,
-      updateAnalytics
+      updateAnalytics: updateAnalyticsData
     }}>
       {children}
     </AppContext.Provider>

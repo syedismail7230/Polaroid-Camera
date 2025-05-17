@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { CreditCard, Wallet, DollarSign, Printer, Check, X } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 interface PaymentProcessProps {
   price: number;
@@ -17,24 +18,39 @@ const PaymentProcess: React.FC<PaymentProcessProps> = ({ price, onComplete }) =>
     { id: 'cash', name: 'Cash', icon: <DollarSign className="h-5 w-5" /> },
   ];
 
-  const simulatePayment = () => {
+  const processPayment = async () => {
     setProcessing(true);
     setStatus('processing');
     
-    // Simulate payment processing time (2 seconds)
-    setTimeout(() => {
-      // 90% success rate for simulation
-      const success = Math.random() < 0.9;
-      setStatus(success ? 'success' : 'failed');
+    try {
+      // Record the payment in Supabase
+      const { error } = await supabase
+        .from('analytics')
+        .upsert([
+          {
+            date: new Date().toISOString().split('T')[0],
+            total_revenue: price,
+            total_prints: 1
+          }
+        ]);
+
+      if (error) throw error;
+
+      // Simulate payment processing time
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      setStatus('success');
       setProcessing(false);
       
       // If successful, wait 1.5 seconds then complete
-      if (success) {
-        setTimeout(() => {
-          onComplete(true);
-        }, 1500);
-      }
-    }, 2000);
+      setTimeout(() => {
+        onComplete(true);
+      }, 1500);
+    } catch (error) {
+      console.error('Payment error:', error);
+      setStatus('failed');
+      setProcessing(false);
+    }
   };
   
   return (
@@ -42,7 +58,7 @@ const PaymentProcess: React.FC<PaymentProcessProps> = ({ price, onComplete }) =>
       <div className="bg-white p-6 rounded-lg shadow-md mb-6">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-semibold">Payment</h2>
-          <div className="text-2xl font-bold text-blue-600">${price.toFixed(2)}</div>
+          <div className="text-2xl font-bold text-blue-600">₹{price.toFixed(2)}</div>
         </div>
         
         {status === 'idle' && (
@@ -70,7 +86,7 @@ const PaymentProcess: React.FC<PaymentProcessProps> = ({ price, onComplete }) =>
             </div>
             
             <button
-              onClick={simulatePayment}
+              onClick={processPayment}
               disabled={!selectedMethod}
               className={`w-full py-3 rounded-lg flex items-center justify-center font-medium ${
                 selectedMethod
